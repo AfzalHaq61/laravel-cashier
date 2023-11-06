@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Fortify\Features;
+use Laravel\Jetstream\Http\Livewire\TwoFactorAuthenticationForm;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class TwoFactorAuthenticationSettingsTest extends TestCase
@@ -23,10 +25,13 @@ class TwoFactorAuthenticationSettingsTest extends TestCase
 
         $this->withSession(['auth.password_confirmed_at' => time()]);
 
-        $response = $this->post('/user/two-factor-authentication');
+        Livewire::test(TwoFactorAuthenticationForm::class)
+            ->call('enableTwoFactorAuthentication');
 
-        $this->assertNotNull($user->fresh()->two_factor_secret);
-        $this->assertCount(8, $user->fresh()->recoveryCodes());
+        $user = $user->fresh();
+
+        $this->assertNotNull($user->two_factor_secret);
+        $this->assertCount(8, $user->recoveryCodes());
     }
 
     public function test_recovery_codes_can_be_regenerated(): void
@@ -41,12 +46,13 @@ class TwoFactorAuthenticationSettingsTest extends TestCase
 
         $this->withSession(['auth.password_confirmed_at' => time()]);
 
-        $this->post('/user/two-factor-authentication');
-        $this->post('/user/two-factor-recovery-codes');
+        $component = Livewire::test(TwoFactorAuthenticationForm::class)
+            ->call('enableTwoFactorAuthentication')
+            ->call('regenerateRecoveryCodes');
 
         $user = $user->fresh();
 
-        $this->post('/user/two-factor-recovery-codes');
+        $component->call('regenerateRecoveryCodes');
 
         $this->assertCount(8, $user->recoveryCodes());
         $this->assertCount(8, array_diff($user->recoveryCodes(), $user->fresh()->recoveryCodes()));
@@ -64,11 +70,12 @@ class TwoFactorAuthenticationSettingsTest extends TestCase
 
         $this->withSession(['auth.password_confirmed_at' => time()]);
 
-        $this->post('/user/two-factor-authentication');
+        $component = Livewire::test(TwoFactorAuthenticationForm::class)
+            ->call('enableTwoFactorAuthentication');
 
         $this->assertNotNull($user->fresh()->two_factor_secret);
 
-        $this->delete('/user/two-factor-authentication');
+        $component->call('disableTwoFactorAuthentication');
 
         $this->assertNull($user->fresh()->two_factor_secret);
     }
